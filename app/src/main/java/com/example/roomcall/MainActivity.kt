@@ -12,10 +12,12 @@ import com.example.roomcall.model.defaultMessages
 import com.example.roomcall.tts.TtsManager
 import com.example.roomcall.ui.RoomCallScreen
 import com.example.roomcall.ui.theme.RoomCallTheme
+import com.example.roomcall.network.TcpServer
 
 class MainActivity : ComponentActivity() {
 
     private var ttsManager: TtsManager? = null
+    private var tcpServer: TcpServer? = null
     private var appMode by mutableStateOf(AppMode.SENDER)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,6 +25,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         ttsManager = TtsManager(this)
+        tcpServer = TcpServer()
 
         setContent {
             RoomCallTheme {
@@ -31,6 +34,12 @@ class MainActivity : ComponentActivity() {
                     messages = defaultMessages,
                     onModeChange = { selectedMode ->
                         appMode = selectedMode
+
+                        if (selectedMode == AppMode.RECEIVER) {
+                            tcpServer?.start()
+                        } else {
+                            tcpServer?.stop()
+                        }
                     },
                     onSpeak = { message ->
                         ttsManager?.speak(message.speechText)
@@ -41,8 +50,12 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        tcpServer?.stop()
+        tcpServer = null
+
         ttsManager?.shutdown()
         ttsManager = null
+
         super.onDestroy()
     }
 }

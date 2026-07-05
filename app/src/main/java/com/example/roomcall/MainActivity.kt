@@ -13,12 +13,15 @@ import com.example.roomcall.tts.TtsManager
 import com.example.roomcall.ui.RoomCallScreen
 import com.example.roomcall.ui.theme.RoomCallTheme
 import com.example.roomcall.network.TcpServer
+import com.example.roomcall.network.NetworkUtils
+
 
 class MainActivity : ComponentActivity() {
 
     private var ttsManager: TtsManager? = null
     private var tcpServer: TcpServer? = null
     private var appMode by mutableStateOf(AppMode.SENDER)
+    private var localIpAddress by mutableStateOf("IP 확인 중")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,11 +29,14 @@ class MainActivity : ComponentActivity() {
 
         ttsManager = TtsManager(this)
         tcpServer = TcpServer()
+        localIpAddress = NetworkUtils.getLocalIpAddress()
+
 
         setContent {
             RoomCallTheme {
                 RoomCallScreen(
                     mode = appMode,
+                    localIpAddress = localIpAddress,
                     messages = defaultMessages,
                     onModeChange = { selectedMode ->
                         appMode = selectedMode

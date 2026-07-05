@@ -26,6 +26,7 @@ import com.example.roomcall.ui.theme.RoomCallTheme
 @Composable
 fun RoomCallScreen(
     mode: AppMode,
+    localIpAddress: String,
     messages: List<RoomMessage>,
     onModeChange: (AppMode) -> Unit,
     onSpeak: (RoomMessage) -> Unit
@@ -89,6 +90,13 @@ fun RoomCallScreen(
                 text = "수신 대기 중입니다.",
                 style = MaterialTheme.typography.bodyLarge
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "현재 IP: $localIpAddress",
+                style = MaterialTheme.typography.bodyLarge
+            )
         }
     }
 }
@@ -99,6 +107,7 @@ fun RoomCallScreenPreview() {
     RoomCallTheme {
         RoomCallScreen(
             mode = AppMode.SENDER,
+            localIpAddress = "192.168.0.15",
             messages = defaultMessages,
             onModeChange = {},
             onSpeak = {}

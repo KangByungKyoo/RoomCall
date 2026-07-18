@@ -29,6 +29,7 @@ fun RoomCallScreen(
     mode: AppMode,
     localIpAddress: String,
     receiverIpAddress: String,
+    receivedMessage: String,
     messages: List<RoomMessage>,
     onModeChange: (AppMode) -> Unit,
     onReceiverIpChange: (String) -> Unit,
@@ -106,11 +107,23 @@ fun RoomCallScreen(
                 style = MaterialTheme.typography.bodyLarge
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "수신기 IP: $localIpAddress",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "현재 IP: $localIpAddress",
-                style = MaterialTheme.typography.bodyLarge
+                text = "받은 메시지",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = receivedMessage,
+                style = MaterialTheme.typography.headlineMedium
             )
         }
     }
@@ -124,6 +137,7 @@ fun RoomCallScreenPreview() {
             mode = AppMode.SENDER,
             localIpAddress = "192.168.0.15",
             receiverIpAddress = "",
+            receivedMessage = "아직 받은 메시지가 없습니다.",
             messages = defaultMessages,
             onModeChange = {},
             onReceiverIpChange = {},

@@ -24,13 +24,20 @@ class MainActivity : ComponentActivity() {
     private var appMode by mutableStateOf(AppMode.SENDER)
     private var localIpAddress by mutableStateOf("IP 확인 중")
     private var receiverIpAddress by mutableStateOf("")
+    private var receivedMessage by mutableStateOf("아직 받은 메시지가 없습니다.")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         ttsManager = TtsManager(this)
-        tcpServer = TcpServer()
+        tcpServer = TcpServer { message ->
+            runOnUiThread {
+                receivedMessage = message
+            }
+        }
+
+
         localIpAddress = NetworkUtils.getLocalIpAddress()
 
 
@@ -40,6 +47,7 @@ class MainActivity : ComponentActivity() {
                     mode = appMode,
                     localIpAddress = localIpAddress,
                     receiverIpAddress = receiverIpAddress,
+                    receivedMessage = receivedMessage,
                     messages = defaultMessages,
                     onReceiverIpChange = { newIpAddress ->
                         receiverIpAddress = newIpAddress

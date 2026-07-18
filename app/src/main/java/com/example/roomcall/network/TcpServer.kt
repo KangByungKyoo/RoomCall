@@ -3,7 +3,9 @@ package com.example.roomcall.network
 import android.util.Log
 import java.net.ServerSocket
 
-class TcpServer {
+class TcpServer(
+    private val onMessageReceived: (String) -> Unit
+) {
 
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
@@ -32,6 +34,10 @@ class TcpServer {
                     val message = reader?.readLine()
 
                     Log.d("RoomCall", "Received message: $message")
+
+                    if (message != null) {
+                        onMessageReceived(message)
+                    }
 
                     reader?.close()
                     clientSocket?.close()

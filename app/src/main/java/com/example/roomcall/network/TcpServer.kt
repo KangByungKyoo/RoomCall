@@ -20,8 +20,20 @@ class TcpServer {
 
                 while (isRunning) {
                     val clientSocket = serverSocket?.accept()
-                    Log.d("RoomCall", "Client connected: ${clientSocket?.inetAddress}")
 
+                    Log.d("RoomCall",
+                        "Client connected: ${clientSocket?.inetAddress}"
+                    )
+
+                    val reader = clientSocket
+                        ?.getInputStream()
+                        ?.bufferedReader()
+
+                    val message = reader?.readLine()
+
+                    Log.d("RoomCall", "Received message: $message")
+
+                    reader?.close()
                     clientSocket?.close()
                 }
             } catch (e: Exception) {
@@ -36,7 +48,9 @@ class TcpServer {
         try {
             serverSocket?.close()
             serverSocket = null
+
             Log.d("RoomCall", "TCP Server stopped")
+
         } catch (e: Exception) {
             Log.e("RoomCall", "TCP Server stop error", e)
         }

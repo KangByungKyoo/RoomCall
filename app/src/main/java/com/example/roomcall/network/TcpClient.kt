@@ -1,32 +1,26 @@
 package com.example.roomcall.network
 
 import android.util.Log
-import java.net.InetSocketAddress
+import java.io.IOException
 import java.net.Socket
+import kotlin.concurrent.thread
 
-class TcpClient {
+object TcpClient {
 
-    fun connect(host: String): Boolean {
-        return try {
-            Thread {
-                try {
-                    Socket().use { socket ->
-                        socket.connect(
-                            InetSocketAddress(host, NetworkConstants.PORT),
-                            3000
-                        )
+    fun send(
+        ipAddress: String,
+        message: String
+    ){
 
-                        Log.d("RoomCall", "TCP Client connected to $host:${NetworkConstants.PORT}")
-                    }
-                } catch (e: Exception) {
-                    Log.e("RoomCall", "TCP Client connection error", e)
-                }
-            }.start()
+        thread {
 
-            true
-        } catch (e: Exception) {
-            Log.e("RoomCall", "TCP Client start error", e)
-            false
+            try {
+                val socket = Socket(ipAddress, 5050)
+                Log.d("TcpClient", "Connected!")
+                socket.close()
+            } catch (e: IOException) {
+                Log.d("TcpClient", "Connection failed", e)
+            }
         }
     }
 }

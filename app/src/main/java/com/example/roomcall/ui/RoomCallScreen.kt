@@ -1,5 +1,6 @@
 package com.example.roomcall.ui
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -27,9 +28,11 @@ import com.example.roomcall.ui.theme.RoomCallTheme
 fun RoomCallScreen(
     mode: AppMode,
     localIpAddress: String,
+    receiverIpAddress: String,
     messages: List<RoomMessage>,
     onModeChange: (AppMode) -> Unit,
-    onSpeak: (RoomMessage) -> Unit
+    onReceiverIpChange: (String) -> Unit,
+    onSend: (RoomMessage) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -73,9 +76,21 @@ fun RoomCallScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         if (mode == AppMode.SENDER) {
+            OutlinedTextField(
+                value = receiverIpAddress,
+                onValueChange = onReceiverIpChange,
+                label = {
+                    Text("수신기 IP 주소")
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             messages.forEach { message ->
                 Button(
-                    onClick = { onSpeak(message) },
+                    onClick = { onSend(message) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
@@ -108,9 +123,11 @@ fun RoomCallScreenPreview() {
         RoomCallScreen(
             mode = AppMode.SENDER,
             localIpAddress = "192.168.0.15",
+            receiverIpAddress = "",
             messages = defaultMessages,
             onModeChange = {},
-            onSpeak = {}
+            onReceiverIpChange = {},
+            onSend = {}
         )
     }
 }

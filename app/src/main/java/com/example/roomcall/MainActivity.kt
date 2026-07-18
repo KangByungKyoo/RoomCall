@@ -1,4 +1,5 @@
 package com.example.roomcall
+import com.example.roomcall.network.TcpClient
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
     private var tcpServer: TcpServer? = null
     private var appMode by mutableStateOf(AppMode.SENDER)
     private var localIpAddress by mutableStateOf("IP 확인 중")
+    private var receiverIpAddress by mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,7 +39,11 @@ class MainActivity : ComponentActivity() {
                 RoomCallScreen(
                     mode = appMode,
                     localIpAddress = localIpAddress,
+                    receiverIpAddress = receiverIpAddress,
                     messages = defaultMessages,
+                    onReceiverIpChange = { newIpAddress ->
+                        receiverIpAddress = newIpAddress
+                    },
                     onModeChange = { selectedMode ->
                         appMode = selectedMode
 
@@ -47,8 +53,11 @@ class MainActivity : ComponentActivity() {
                             tcpServer?.stop()
                         }
                     },
-                    onSpeak = { message ->
-                        ttsManager?.speak(message.speechText)
+                    onSend = { message ->
+                        TcpClient.send(
+                            ipAddress = receiverIpAddress,
+                            message = message.speechText
+                        )
                     }
                 )
             }

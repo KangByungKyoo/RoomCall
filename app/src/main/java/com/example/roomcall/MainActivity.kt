@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
         tcpServer = TcpServer { message ->
             runOnUiThread {
                 receivedMessage = message
+                ttsManager?.speak(message)
             }
         }
 

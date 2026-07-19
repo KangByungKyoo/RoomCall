@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -14,6 +17,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.RoomCall"
         tools:targetApi="31">
+        <service
+            android:name=".service.RoomCallReceiverService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

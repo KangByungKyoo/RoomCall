@@ -9,11 +9,13 @@ import androidx.core.app.NotificationCompat
 import com.example.roomcall.R
 import com.example.roomcall.network.TcpServer
 import com.example.roomcall.tts.TtsManager
+import com.example.roomcall.network.RoomCallNsdRegistrar
 
 class RoomCallReceiverService : Service() {
 
     private var tcpServer: TcpServer? = null
     private var ttsManager: TtsManager? = null
+    private var nsdRegistrar: RoomCallNsdRegistrar? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -52,6 +54,9 @@ class RoomCallReceiverService : Service() {
         }
 
         tcpServer?.start()
+
+        nsdRegistrar = RoomCallNsdRegistrar(applicationContext)
+        nsdRegistrar?.register()
     }
 
     override fun onStartCommand(
@@ -63,6 +68,9 @@ class RoomCallReceiverService : Service() {
     }
 
     override fun onDestroy() {
+        nsdRegistrar?.unregister()
+        nsdRegistrar = null
+
         tcpServer?.stop()
         tcpServer = null
 

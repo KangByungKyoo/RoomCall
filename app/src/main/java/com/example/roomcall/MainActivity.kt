@@ -23,6 +23,9 @@ import com.example.roomcall.ui.RoomCallScreen
 import com.example.roomcall.ui.theme.RoomCallTheme
 import com.example.roomcall.network.TcpServer
 import com.example.roomcall.network.NetworkUtils
+import com.example.roomcall.network.RoomCallNsdDiscovery
+import android.util.Log
+import android.widget.Toast
 
 
 class MainActivity : ComponentActivity() {
@@ -33,6 +36,7 @@ class MainActivity : ComponentActivity() {
     private var localIpAddress by mutableStateOf("IP 확인 중")
     private var receiverIpAddress by mutableStateOf("")
     private var receivedMessage by mutableStateOf("아직 받은 메시지가 없습니다.")
+    private var nsdDiscovery: RoomCallNsdDiscovery? = null
 
 
 
@@ -56,6 +60,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+//        throw RuntimeException("MainActivity reached")
+
         enableEdgeToEdge()
 
         ttsManager = TtsManager(this)
@@ -69,6 +76,42 @@ class MainActivity : ComponentActivity() {
 
         localIpAddress = NetworkUtils.getLocalIpAddress()
 
+        nsdDiscovery = RoomCallNsdDiscovery(
+            context = this,
+            onReceiverFound = { ipAddress, port ->
+
+                runOnUiThread {
+
+                    receiverIpAddress = ipAddress
+
+                    Log.d(
+                        "RoomCall-NSD",
+                        "Receiver found : $ipAddress:$port"
+                    )
+                }
+            },
+            onReceiverLost = {
+
+                runOnUiThread {
+
+                    Log.d(
+                        "RoomCall-NSD",
+                        "Receiver lost"
+                    )
+                }
+            }
+        )
+
+        if (appMode == AppMode.SENDER) {
+
+            Toast.makeText(
+                this,
+                "Start Discovery",
+                Toast.LENGTH_LONG
+            ).show()
+
+            nsdDiscovery?.startDiscovery()
+        }
 
         setContent {
             RoomCallTheme {
@@ -85,6 +128,8 @@ class MainActivity : ComponentActivity() {
                         appMode = selectedMode
 
                         if (selectedMode == AppMode.RECEIVER) {
+
+                            nsdDiscovery?.stopDiscovery()
 
                             val intent = Intent(
                                 this@MainActivity,
@@ -104,6 +149,8 @@ class MainActivity : ComponentActivity() {
                             )
 
                             stopService(intent)
+
+                            nsdDiscovery?.startDiscovery()
                         }
                     },
                     onSend = { message ->
@@ -118,6 +165,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        nsdDiscovery?.stopDiscovery()
+
         tcpServer?.stop()
         tcpServer = null
 

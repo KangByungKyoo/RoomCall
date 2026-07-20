@@ -17,7 +17,7 @@ object TcpClient {
         thread {
 
             try {
-                val socket = Socket(ipAddress, 5050)
+                val socket = Socket(ipAddress, NetworkConstants.PORT)
 
                 Log.d("TcpClient", "Connected!")
 

@@ -26,7 +26,6 @@ import com.example.roomcall.network.NetworkUtils
 import com.example.roomcall.network.RoomCallNsdDiscovery
 import android.util.Log
 import android.widget.Toast
-import com.example.roomcall.R
 import com.example.roomcall.audio.VoicePlayer
 
 

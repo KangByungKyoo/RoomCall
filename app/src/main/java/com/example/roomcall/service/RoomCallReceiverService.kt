@@ -8,17 +8,23 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.roomcall.R
 import com.example.roomcall.network.TcpServer
-import com.example.roomcall.tts.TtsManager
+
 import com.example.roomcall.network.RoomCallNsdRegistrar
+import com.example.roomcall.audio.VoicePlayer
+
 
 class RoomCallReceiverService : Service() {
 
     private var tcpServer: TcpServer? = null
-    private var ttsManager: TtsManager? = null
+
     private var nsdRegistrar: RoomCallNsdRegistrar? = null
+    private lateinit var voicePlayer: VoicePlayer
 
     override fun onCreate() {
         super.onCreate()
+
+        voicePlayer = VoicePlayer(this)
+
 
         createNotificationChannel()
 
@@ -37,12 +43,11 @@ class RoomCallReceiverService : Service() {
             notification
         )
 
-        ttsManager = TtsManager(this)
+
 
         tcpServer = TcpServer { message ->
 
-            // 음성 재생
-            ttsManager?.speak(message)
+
 
             // MainActivity에 받은 메시지 전달
             val broadcastIntent = Intent(ACTION_MESSAGE_RECEIVED).apply {
@@ -74,8 +79,8 @@ class RoomCallReceiverService : Service() {
         tcpServer?.stop()
         tcpServer = null
 
-        ttsManager?.shutdown()
-        ttsManager = null
+
+
 
         super.onDestroy()
     }

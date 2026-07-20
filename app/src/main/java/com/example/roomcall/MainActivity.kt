@@ -18,7 +18,7 @@ import androidx.compose.runtime.setValue
 
 import com.example.roomcall.model.AppMode
 import com.example.roomcall.model.defaultMessages
-import com.example.roomcall.tts.TtsManager
+
 import com.example.roomcall.ui.RoomCallScreen
 import com.example.roomcall.ui.theme.RoomCallTheme
 import com.example.roomcall.network.TcpServer
@@ -26,21 +26,24 @@ import com.example.roomcall.network.NetworkUtils
 import com.example.roomcall.network.RoomCallNsdDiscovery
 import android.util.Log
 import android.widget.Toast
+import com.example.roomcall.R
+import com.example.roomcall.audio.VoicePlayer
 
 
 class MainActivity : ComponentActivity() {
 
-    private var ttsManager: TtsManager? = null
+
     private var tcpServer: TcpServer? = null
     private var appMode by mutableStateOf(AppMode.SENDER)
     private var localIpAddress by mutableStateOf("IP 확인 중")
     private var receiverIpAddress by mutableStateOf("")
     private var receivedMessage by mutableStateOf("아직 받은 메시지가 없습니다.")
     private var nsdDiscovery: RoomCallNsdDiscovery? = null
-
+    private lateinit var voicePlayer: VoicePlayer
 
 
     private val messageReceiver = object : BroadcastReceiver() {
+
         override fun onReceive(context: Context?, intent: Intent?) {
 
             if (intent?.action !=
@@ -54,6 +57,7 @@ class MainActivity : ComponentActivity() {
             ) ?: return
 
             receivedMessage = message
+            voicePlayer.playMessage(message)
         }
     }
 
@@ -61,15 +65,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-//        throw RuntimeException("MainActivity reached")
+        voicePlayer = VoicePlayer(this)
 
         enableEdgeToEdge()
 
-        ttsManager = TtsManager(this)
+
         tcpServer = TcpServer { message ->
             runOnUiThread {
                 receivedMessage = message
-                ttsManager?.speak(message)
+                voicePlayer.playMessage(message)
             }
         }
 
@@ -170,8 +174,10 @@ class MainActivity : ComponentActivity() {
         tcpServer?.stop()
         tcpServer = null
 
-        ttsManager?.shutdown()
-        ttsManager = null
+//        ttsManager?.shutdown()
+//        ttsManager = null
+
+        voicePlayer.release()
 
         super.onDestroy()
     }

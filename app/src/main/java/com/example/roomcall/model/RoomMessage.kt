@@ -15,8 +15,8 @@ val defaultMessages = listOf(
         speechText = "주희야, 조용히 좀 해"
     ),
     RoomMessage(
-        title = "밥 먹자",
-        speechText = "밥 먹자."
+        title = "주희야, 밥 먹자",
+        speechText = "주희야, 밥 먹자"
     )
 
 )

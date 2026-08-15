@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
             ) ?: return
 
             receivedMessage = message
-            voicePlayer.playMessage(message)
+//            voicePlayer.playMessage(message)
         }
     }
 

@@ -5,12 +5,14 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.example.roomcall.R
 import com.example.roomcall.audio.VoicePlayer
+import com.example.roomcall.model.defaultMessages
 import com.example.roomcall.network.RoomCallNsdRegistrar
 import com.example.roomcall.network.TcpServer
 
@@ -18,7 +20,9 @@ class RoomCallReceiverService : Service() {
 
     private var tcpServer: TcpServer? = null
     private var nsdRegistrar: RoomCallNsdRegistrar? = null
+    private var wifiLock: WifiManager.WifiLock? = null
     private lateinit var voicePlayer: VoicePlayer
+    private val allowedMessages = defaultMessages.map { it.speechText }.toSet()
 
     override fun onCreate() {
         super.onCreate()
@@ -26,11 +30,14 @@ class RoomCallReceiverService : Service() {
         // Foreground Service로 전환
         createNotificationChannel()
         startAsForegroundService()
+        acquireWifiLock()
 
         // 화면이 꺼져도 음성을 재생할 수 있도록 서비스에서 관리
         voicePlayer = VoicePlayer(this)
 
         tcpServer = TcpServer { message ->
+            if (message !in allowedMessages) return@TcpServer
+
             voicePlayer.playMessage(message)                // 서비스에서 직접 음성 재생
 
             // 화면이 켜져 있을 때 MainActivity의 표시 내용 갱신
@@ -63,6 +70,7 @@ class RoomCallReceiverService : Service() {
         tcpServer?.stop()
         tcpServer = null
 
+        releaseWifiLock()
         voicePlayer.release()
 
         super.onDestroy()
@@ -112,6 +120,28 @@ class RoomCallReceiverService : Service() {
 
             notificationManager.createNotificationChannel(channel)
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun acquireWifiLock() {
+        if (wifiLock?.isHeld == true) return
+
+        val wifiManager = applicationContext
+            .getSystemService(WifiManager::class.java)
+
+        wifiLock = wifiManager
+            .createWifiLock("RoomCall:ReceiverWifiLock")
+            .apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+    }
+
+    private fun releaseWifiLock() {
+        wifiLock?.let { lock ->
+            if (lock.isHeld) lock.release()
+        }
+        wifiLock = null
     }
 
     companion object {

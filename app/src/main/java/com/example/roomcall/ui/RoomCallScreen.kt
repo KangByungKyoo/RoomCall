@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -30,6 +32,7 @@ fun RoomCallScreen(
     localIpAddress: String,
     receiverIpAddress: String,
     receivedMessage: String,
+    sendStatus: String?,
     messages: List<RoomMessage>,
     onModeChange: (AppMode) -> Unit,
     onReceiverIpChange: (String) -> Unit,
@@ -39,9 +42,10 @@ fun RoomCallScreen(
         modifier = Modifier
             .fillMaxSize()
             .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
         Text(
             text = "RoomCall",
@@ -86,6 +90,14 @@ fun RoomCallScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            sendStatus?.let { status ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -138,6 +150,7 @@ fun RoomCallScreenPreview() {
             localIpAddress = "192.168.0.15",
             receiverIpAddress = "",
             receivedMessage = "아직 받은 메시지가 없습니다.",
+            sendStatus = null,
             messages = defaultMessages,
             onModeChange = {},
             onReceiverIpChange = {},

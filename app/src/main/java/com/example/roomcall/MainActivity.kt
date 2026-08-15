@@ -1,6 +1,7 @@
 package com.example.roomcall
 import com.example.roomcall.network.TcpClient
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,8 @@ import androidx.core.content.ContextCompat
 import com.example.roomcall.service.RoomCallReceiverService
 
 import android.os.Bundle
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,24 +24,29 @@ import com.example.roomcall.model.defaultMessages
 
 import com.example.roomcall.ui.RoomCallScreen
 import com.example.roomcall.ui.theme.RoomCallTheme
-import com.example.roomcall.network.TcpServer
 import com.example.roomcall.network.NetworkUtils
+import com.example.roomcall.network.NetworkConstants
 import com.example.roomcall.network.RoomCallNsdDiscovery
 import android.util.Log
-import android.widget.Toast
-import com.example.roomcall.audio.VoicePlayer
 
 
 class MainActivity : ComponentActivity() {
 
-
-    private var tcpServer: TcpServer? = null
     private var appMode by mutableStateOf(AppMode.SENDER)
     private var localIpAddress by mutableStateOf("IP 확인 중")
     private var receiverIpAddress by mutableStateOf("")
+    private var receiverPort = NetworkConstants.PORT
     private var receivedMessage by mutableStateOf("아직 받은 메시지가 없습니다.")
+    private var sendStatus by mutableStateOf<String?>(null)
     private var nsdDiscovery: RoomCallNsdDiscovery? = null
-    private lateinit var voicePlayer: VoicePlayer
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            Log.w("RoomCall", "Notification permission was denied")
+        }
+    }
 
 
     private val messageReceiver = object : BroadcastReceiver() {
@@ -56,7 +64,6 @@ class MainActivity : ComponentActivity() {
             ) ?: return
 
             receivedMessage = message
-//            voicePlayer.playMessage(message)
         }
     }
 
@@ -64,20 +71,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        voicePlayer = VoicePlayer(this)
-
         enableEdgeToEdge()
-
-
-        tcpServer = TcpServer { message ->
-            runOnUiThread {
-                receivedMessage = message
-                voicePlayer.playMessage(message)
-            }
-        }
-
-
-        localIpAddress = NetworkUtils.getLocalIpAddress()
+        appMode = savedMode()
+        localIpAddress = NetworkUtils.getLocalIpAddress(this)
 
         nsdDiscovery = RoomCallNsdDiscovery(
             context = this,
@@ -86,6 +82,8 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread {
 
                     receiverIpAddress = ipAddress
+                    receiverPort = port
+                    sendStatus = null
 
                     Log.d(
                         "RoomCall-NSD",
@@ -96,7 +94,9 @@ class MainActivity : ComponentActivity() {
             onReceiverLost = {
 
                 runOnUiThread {
-
+                    receiverIpAddress = ""
+                    receiverPort = NetworkConstants.PORT
+                    sendStatus = "수신기 연결이 해제되었습니다."
                     Log.d(
                         "RoomCall-NSD",
                         "Receiver lost"
@@ -106,14 +106,10 @@ class MainActivity : ComponentActivity() {
         )
 
         if (appMode == AppMode.SENDER) {
-
-            Toast.makeText(
-                this,
-                "Start Discovery",
-                Toast.LENGTH_LONG
-            ).show()
-
             nsdDiscovery?.startDiscovery()
+        } else {
+            requestNotificationPermissionIfNeeded()
+            startReceiverService()
         }
 
         setContent {
@@ -123,43 +119,44 @@ class MainActivity : ComponentActivity() {
                     localIpAddress = localIpAddress,
                     receiverIpAddress = receiverIpAddress,
                     receivedMessage = receivedMessage,
+                    sendStatus = sendStatus,
                     messages = defaultMessages,
                     onReceiverIpChange = { newIpAddress ->
                         receiverIpAddress = newIpAddress
+                        receiverPort = NetworkConstants.PORT
+                        sendStatus = null
                     },
                     onModeChange = { selectedMode ->
+                        if (selectedMode == appMode) return@RoomCallScreen
+
                         appMode = selectedMode
+                        saveMode(selectedMode)
+                        sendStatus = null
 
                         if (selectedMode == AppMode.RECEIVER) {
-
                             nsdDiscovery?.stopDiscovery()
-
-                            val intent = Intent(
-                                this@MainActivity,
-                                RoomCallReceiverService::class.java
-                            )
-
-                            ContextCompat.startForegroundService(
-                                this@MainActivity,
-                                intent
-                            )
-
+                            requestNotificationPermissionIfNeeded()
+                            startReceiverService()
                         } else {
-
-                            val intent = Intent(
-                                this@MainActivity,
-                                RoomCallReceiverService::class.java
-                            )
-
-                            stopService(intent)
-
+                            stopReceiverService()
                             nsdDiscovery?.startDiscovery()
                         }
                     },
                     onSend = { message ->
+                        sendStatus = "전송 중…"
                         TcpClient.send(
                             ipAddress = receiverIpAddress,
-                            message = message.speechText
+                            port = receiverPort,
+                            message = message.speechText,
+                            onResult = { success ->
+                                runOnUiThread {
+                                    sendStatus = if (success) {
+                                        "전송했습니다."
+                                    } else {
+                                        "전송하지 못했습니다. IP와 네트워크를 확인하세요."
+                                    }
+                                }
+                            }
                         )
                     }
                 )
@@ -169,14 +166,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         nsdDiscovery?.stopDiscovery()
-
-        tcpServer?.stop()
-        tcpServer = null
-
-//        ttsManager?.shutdown()
-//        ttsManager = null
-
-        voicePlayer.release()
 
         super.onDestroy()
     }
@@ -199,5 +188,44 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         unregisterReceiver(messageReceiver)
+    }
+
+    private fun startReceiverService() {
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, RoomCallReceiverService::class.java)
+        )
+    }
+
+    private fun stopReceiverService() {
+        stopService(Intent(this, RoomCallReceiverService::class.java))
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun savedMode(): AppMode {
+        val value = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
+            .getString(PREFERENCE_MODE, AppMode.SENDER.name)
+        return runCatching { AppMode.valueOf(value.orEmpty()) }
+            .getOrDefault(AppMode.SENDER)
+    }
+
+    private fun saveMode(mode: AppMode) {
+        getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(PREFERENCE_MODE, mode.name)
+            .apply()
+    }
+
+    companion object {
+        private const val PREFERENCES_NAME = "room_call_preferences"
+        private const val PREFERENCE_MODE = "app_mode"
     }
 }

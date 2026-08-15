@@ -17,7 +17,6 @@ import com.example.roomcall.network.RoomCallNsdRegistrar
 import com.example.roomcall.network.TcpServer
 
 class RoomCallReceiverService : Service() {
-
     private var tcpServer: TcpServer? = null
     private var nsdRegistrar: RoomCallNsdRegistrar? = null
     private var wifiLock: WifiManager.WifiLock? = null
@@ -26,66 +25,40 @@ class RoomCallReceiverService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-
-        // Foreground Service로 전환
         createNotificationChannel()
         startAsForegroundService()
         acquireWifiLock()
-
-        // 화면이 꺼져도 음성을 재생할 수 있도록 서비스에서 관리
         voicePlayer = VoicePlayer(this)
 
         tcpServer = TcpServer { message ->
             if (message !in allowedMessages) return@TcpServer
-
-            voicePlayer.playMessage(message)                // 서비스에서 직접 음성 재생
-
-            // 화면이 켜져 있을 때 MainActivity의 표시 내용 갱신
-            val broadcastIntent = Intent(ACTION_MESSAGE_RECEIVED).apply {
+            voicePlayer.playMessage(message)
+            sendBroadcast(Intent(ACTION_MESSAGE_RECEIVED).apply {
                 setPackage(packageName)
                 putExtra(EXTRA_MESSAGE, message)
-            }
-
-            sendBroadcast(broadcastIntent)
+            })
         }
-
         tcpServer?.start()
-
         nsdRegistrar = RoomCallNsdRegistrar(applicationContext)
         nsdRegistrar?.register()
     }
 
-    override fun onStartCommand(
-        intent: Intent?,
-        flags: Int,
-        startId: Int
-    ): Int {
-        return START_STICKY
-    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
         nsdRegistrar?.unregister()
         nsdRegistrar = null
-
         tcpServer?.stop()
         tcpServer = null
-
         releaseWifiLock()
         voicePlayer.release()
-
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startAsForegroundService() {
-
-        val notification = NotificationCompat.Builder(
-            this,
-            CHANNEL_ID
-        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("RoomCall 수신 대기 중")
             .setContentText("화면이 꺼져도 호출 메시지를 받을 수 있습니다.")
@@ -99,9 +72,7 @@ class RoomCallReceiverService : Service() {
             notification,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-            } else {
-                0
-            }
+            } else 0
         )
     }
 
@@ -114,22 +85,15 @@ class RoomCallReceiverService : Service() {
             ).apply {
                 description = "RoomCall 메시지를 계속 수신하기 위한 서비스입니다."
             }
-
-            val notificationManager =
-                getSystemService(NotificationManager::class.java)
-
-            notificationManager.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
         }
     }
 
     @Suppress("DEPRECATION")
     private fun acquireWifiLock() {
         if (wifiLock?.isHeld == true) return
-
-        val wifiManager = applicationContext
-            .getSystemService(WifiManager::class.java)
-
-        wifiLock = wifiManager
+        wifiLock = applicationContext.getSystemService(WifiManager::class.java)
             .createWifiLock("RoomCall:ReceiverWifiLock")
             .apply {
                 setReferenceCounted(false)
@@ -138,21 +102,14 @@ class RoomCallReceiverService : Service() {
     }
 
     private fun releaseWifiLock() {
-        wifiLock?.let { lock ->
-            if (lock.isHeld) lock.release()
-        }
+        wifiLock?.let { if (it.isHeld) it.release() }
         wifiLock = null
     }
 
     companion object {
-        const val ACTION_MESSAGE_RECEIVED =
-            "com.example.roomcall.ACTION_MESSAGE_RECEIVED"
-
+        const val ACTION_MESSAGE_RECEIVED = "com.example.roomcall.ACTION_MESSAGE_RECEIVED"
         const val EXTRA_MESSAGE = "extra_message"
-
-        private const val CHANNEL_ID =
-            "roomcall_receiver_channel"
-
+        private const val CHANNEL_ID = "roomcall_receiver_channel"
         private const val NOTIFICATION_ID = 1001
     }
 }

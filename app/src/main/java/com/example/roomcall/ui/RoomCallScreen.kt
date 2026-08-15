@@ -1,6 +1,5 @@
 package com.example.roomcall.ui
 
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,11 +39,8 @@ fun RoomCallScreen(
     onSend: (RoomMessage) -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().safeDrawingPadding()
+            .verticalScroll(rememberScrollState()).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
@@ -52,91 +49,48 @@ fun RoomCallScreen(
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold
         )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "현재 모드: ${mode.label}",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(Modifier.height(24.dp))
+        Text("현재 모드: ${mode.label}", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(24.dp))
 
         OutlinedButton(
             onClick = { onModeChange(AppMode.SENDER) },
             modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("송신 모드")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
+        ) { Text("송신 모드") }
+        Spacer(Modifier.height(8.dp))
         OutlinedButton(
             onClick = { onModeChange(AppMode.RECEIVER) },
             modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("수신 모드")
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
+        ) { Text("수신 모드") }
+        Spacer(Modifier.height(32.dp))
 
         if (mode == AppMode.SENDER) {
             OutlinedTextField(
                 value = receiverIpAddress,
                 onValueChange = onReceiverIpChange,
-                label = {
-                    Text("수신기 IP 주소")
-                },
+                label = { Text("수신기 IP 주소") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-
-            sendStatus?.let { status ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = status,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            sendStatus?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.bodyMedium)
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+            Spacer(Modifier.height(16.dp))
             messages.forEach { message ->
                 Button(
                     onClick = { onSend(message) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Text(text = message.title)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) { Text(message.title) }
+                Spacer(Modifier.height(16.dp))
             }
         } else {
-            Text(
-                text = "수신 대기 중입니다.",
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            Text(
-                text = "수신기 IP: $localIpAddress",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "받은 메시지",
-                style = MaterialTheme.typography.titleLarge
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = receivedMessage,
-                style = MaterialTheme.typography.headlineMedium
-            )
+            Text("수신 대기 중입니다.", style = MaterialTheme.typography.bodyLarge)
+            Text("수신기 IP: $localIpAddress", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(16.dp))
+            Text("받은 메시지", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            Text(receivedMessage, style = MaterialTheme.typography.headlineMedium)
         }
     }
 }

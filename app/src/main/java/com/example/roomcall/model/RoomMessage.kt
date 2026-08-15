@@ -6,17 +6,7 @@ data class RoomMessage(
 )
 
 val defaultMessages = listOf(
-    RoomMessage(
-        title = "응, 괜찮아",
-        speechText = "응, 괜찮아"
-    ),
-    RoomMessage(
-        title = "주희야, 조용히 좀 해",
-        speechText = "주희야, 조용히 좀 해"
-    ),
-    RoomMessage(
-        title = "주희야, 밥 먹자",
-        speechText = "주희야, 밥 먹자"
-    )
-
+    RoomMessage("응, 괜찮아", "응, 괜찮아"),
+    RoomMessage("주희야, 조용히 좀 해", "주희야, 조용히 좀 해"),
+    RoomMessage("주희야, 밥 먹자", "주희야, 밥 먹자")
 )

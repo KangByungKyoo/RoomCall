@@ -6,7 +6,6 @@ import androidx.annotation.RawRes
 import com.example.roomcall.R
 
 class VoicePlayer(context: Context) {
-
     private val appContext = context.applicationContext
     private var mediaPlayer: MediaPlayer? = null
 
@@ -17,13 +16,11 @@ class VoicePlayer(context: Context) {
             "주희야, 밥 먹자" -> R.raw.have_a_meal
             else -> return
         }
-
         play(resourceId)
     }
 
     private fun play(@RawRes resourceId: Int) {
         mediaPlayer?.release()
-
         mediaPlayer = MediaPlayer.create(appContext, resourceId)?.apply {
             setOnCompletionListener {
                 release()

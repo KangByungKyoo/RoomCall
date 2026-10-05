@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.util.Log
+import com.example.roomcall.call.CallProtocol
 
 class RoomCallNsdRegistrar(
     context: Context
@@ -28,7 +29,7 @@ class RoomCallNsdRegistrar(
         val serviceInfo = NsdServiceInfo().apply {
             serviceName = SERVICE_NAME
             serviceType = SERVICE_TYPE
-            port = NetworkConstants.PORT
+            port = CallProtocol.PORT
         }
 
         Log.d(

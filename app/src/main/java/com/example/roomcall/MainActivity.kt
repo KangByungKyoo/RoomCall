@@ -1,5 +1,17 @@
 package com.example.roomcall
 
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.example.roomcall.call.CallClient
+import com.example.roomcall.call.CallStates
+import com.example.roomcall.call.CallStatus
+import com.example.roomcall.service.SenderCallService
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -33,6 +45,22 @@ class MainActivity : ComponentActivity() {
     private var receiverPort = NetworkConstants.PORT
     private var receivedMessage by mutableStateOf("아직 받은 메시지가 없습니다.")
     private var sendStatus by mutableStateOf<String?>(null)
+    private var remoteCallStatus by mutableStateOf<CallStatus?>(null)
+    private var pendingSenderCall = false
+    private var requestedNotificationPermission = false
+    private var requestedReceiverMic = false
+    private val microphonePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            if (appMode == AppMode.RECEIVER && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) startReceiverService()
+            else if (pendingSenderCall && appMode == AppMode.SENDER && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) startSenderCall()
+        } else {
+            pendingSenderCall = false
+            sendStatus = "마이크 권한이 필요합니다. 메시지 전송은 계속 사용할 수 있습니다."
+        }
+        requestNotificationPermissionIfNeeded()
+    }
     private var nsdDiscovery: RoomCallNsdDiscovery? = null
 
     private val notificationPermissionLauncher = registerForActivityResult(
@@ -79,11 +107,25 @@ class MainActivity : ComponentActivity() {
         if (appMode == AppMode.SENDER) {
             nsdDiscovery?.startDiscovery()
         } else {
-            requestNotificationPermissionIfNeeded()
             startReceiverService()
         }
 
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val ip = receiverIpAddress
+                    if (appMode == AppMode.SENDER && ip.isNotBlank()) {
+                        val status = withContext(Dispatchers.IO) { runCatching { CallClient.query(this@MainActivity, ip) }.getOrNull() }
+                        if (receiverIpAddress == ip) remoteCallStatus = status
+                    } else remoteCallStatus = null
+                    localIpAddress = NetworkUtils.getLocalIpAddress(this@MainActivity)
+                    delay(2000)
+                }
+            }
+        }
         setContent {
+            val senderCall by CallStates.sender.collectAsState()
+            val receiverCall by CallStates.receiver.collectAsState()
             RoomCallTheme {
                 RoomCallScreen(
                     mode = appMode,
@@ -92,6 +134,20 @@ class MainActivity : ComponentActivity() {
                     receivedMessage = receivedMessage,
                     sendStatus = sendStatus,
                     messages = defaultMessages,
+                    callStatus = if (appMode == AppMode.SENDER) senderCall else receiverCall,
+                    remoteCallStatus = remoteCallStatus,
+                    onCall = {
+                        if (hasMicrophonePermission()) startSenderCall()
+                        else {
+                            pendingSenderCall = true
+                            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    onEndCall = { stopService(Intent(this, SenderCallService::class.java)) },
+                    onEnableVoice = {
+                        if (hasMicrophonePermission()) startReceiverService()
+                        else microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    },
                     onReceiverIpChange = { newIpAddress ->
                         receiverIpAddress = newIpAddress
                         receiverPort = NetworkConstants.PORT
@@ -99,13 +155,13 @@ class MainActivity : ComponentActivity() {
                     },
                     onModeChange = { selectedMode ->
                         if (selectedMode != appMode) {
+                            stopService(Intent(this, SenderCallService::class.java))
                             appMode = selectedMode
                             saveMode(selectedMode)
                             sendStatus = null
                             if (selectedMode == AppMode.RECEIVER) {
                                 nsdDiscovery?.stopDiscovery()
-                                requestNotificationPermissionIfNeeded()
-                                startReceiverService()
+                                prepareReceiver()
                             } else {
                                 stopReceiverService()
                                 nsdDiscovery?.startDiscovery()
@@ -134,6 +190,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (appMode == AppMode.RECEIVER) prepareReceiver()
+        else if (pendingSenderCall && hasMicrophonePermission()) startSenderCall()
+    }
+
+    private fun hasMicrophonePermission() = checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private fun prepareReceiver() {
+        startReceiverService()
+        if (!hasMicrophonePermission() && !requestedReceiverMic) {
+            requestedReceiverMic = true
+            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        } else if (hasMicrophonePermission()) requestNotificationPermissionIfNeeded()
+    }
+
+    private fun startSenderCall() {
+        if (appMode != AppMode.SENDER || receiverIpAddress.isBlank() ||
+            !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+        pendingSenderCall = false
+        requestNotificationPermissionIfNeeded()
+        ContextCompat.startForegroundService(this, Intent(this, SenderCallService::class.java)
+            .putExtra(SenderCallService.IP, receiverIpAddress))
+    }
+
     override fun onStart() {
         super.onStart()
         ContextCompat.registerReceiver(
@@ -156,7 +238,8 @@ class MainActivity : ComponentActivity() {
 
     private fun startReceiverService() = ContextCompat.startForegroundService(
         this,
-        Intent(this, RoomCallReceiverService::class.java)
+        Intent(this, RoomCallReceiverService::class.java).putExtra(RoomCallReceiverService.EXTRA_ARM_VOICE,
+            hasMicrophonePermission() && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     )
 
     private fun stopReceiverService() {
@@ -164,10 +247,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        if (!requestedNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
+            requestedNotificationPermission = true
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }

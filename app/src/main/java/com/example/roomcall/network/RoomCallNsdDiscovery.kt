@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.util.Log
+import android.net.wifi.WifiManager
+import android.os.Build
+import java.net.Inet4Address
 
 class RoomCallNsdDiscovery(
     private val context: Context,
@@ -21,16 +24,19 @@ class RoomCallNsdDiscovery(
     private val nsdManager =
         context.applicationContext.getSystemService(Context.NSD_SERVICE) as NsdManager
 
+    private var multicastLock: WifiManager.MulticastLock? = null
     private var discoveryListener: NsdManager.DiscoveryListener? = null
     private var isDiscovering = false
     private var isResolving = false
 
     fun startDiscovery() {
-        if (isDiscovering) {
+        if (discoveryListener != null) {
             Log.d(TAG, "Discovery is already running")
             return
         }
 
+        multicastLock = context.applicationContext.getSystemService(WifiManager::class.java)
+            .createMulticastLock("RoomCall:NsdDiscovery").apply { setReferenceCounted(false); acquire() }
         val listener = object : NsdManager.DiscoveryListener {
 
             override fun onDiscoveryStarted(serviceType: String) {
@@ -109,6 +115,7 @@ class RoomCallNsdDiscovery(
             discoveryListener = null
             isDiscovering = false
 
+            multicastLock?.let { if (it.isHeld) it.release() }; multicastLock = null
             Log.e(TAG, "Could not start NSD discovery", e)
         }
     }
@@ -129,7 +136,10 @@ class RoomCallNsdDiscovery(
                 ) {
                     isResolving = false
 
-                    val host = resolvedServiceInfo.host
+                    if (discoveryListener == null) return
+                    val host = if (Build.VERSION.SDK_INT >= 34) {
+                        resolvedServiceInfo.hostAddresses.firstOrNull { it is Inet4Address }
+                    } else resolvedServiceInfo.host
                     val port = resolvedServiceInfo.port
 
                     if (host == null || port <= 0) {
@@ -180,6 +190,7 @@ class RoomCallNsdDiscovery(
             discoveryListener = null
             isDiscovering = false
             isResolving = false
+            multicastLock?.let { if (it.isHeld) it.release() }; multicastLock = null
         }
     }
 }
